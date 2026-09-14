@@ -31,8 +31,8 @@ function App(){const fileInputRef=useRef(null);const [tab,setTab]=useState('rese
     if(!text.trim())throw Error('Selected file is empty');
     const r=await fetch('/api/universe',{
       method:'POST',
-      headers:{'Content-Type':'text/csv','X-Source-Name':file.name||'import.csv'},
-      body:text
+      headers:{'Content-Type':'application/json','X-Source-Name':file.name||'import.csv'},
+      body:JSON.stringify({csv:text})
     });
     const j=await r.json().catch(()=>({error:'Invalid server response'}));
     if(!r.ok)throw Error(j.error||'Import request failed');
