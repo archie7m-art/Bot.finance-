@@ -10,9 +10,11 @@ async function getYahoo(symbol,range='1y'){
 }
 async function universe(redis){const raw=await redis.get('mrl:universe');return raw?(typeof raw==='string'?JSON.parse(raw):raw):[]}
 export default async function handler(req,res){
- if(req.method!=='GET')return res.status(405).json({error:'GET only'});if(process.env.CRON_SECRET&&req.headers.authorization!==`Bearer ${process.env.CRON_SECRET}`)return res.status(401).json({error:'Unauthorized'});
+ if(req.method!=='GET'&&req.method!=='POST')return res.status(405).json({error:'GET or POST only'});
+ if(req.method==='GET'&&process.env.CRON_SECRET&&req.headers.authorization!==`Bearer ${process.env.CRON_SECRET}`)return res.status(401).json({error:'Unauthorized'});
  try{const redis=Redis.fromEnv(),u=await universe(redis);if(!u.length)return res.status(503).json({error:'No universe configured'});
-  const offset=Math.max(0,Number(req.query?.offset||0)),limit=Math.min(50,Math.max(1,Number(req.query?.limit||25))),symbols=u.map(x=>typeof x==='string'?x:x.symbol).filter(Boolean).slice(offset,offset+limit);
+  const body=typeof req.body==='string'?(()=>{try{return JSON.parse(req.body)}catch{return {}}})():(req.body||{});
+  const offset=Math.max(0,Number(req.method==='POST'?body.offset:req.query?.offset)||0),limit=Math.min(50,Math.max(1,Number(req.method==='POST'?body.limit:req.query?.limit)||25)),symbols=u.map(x=>typeof x==='string'?x:x.symbol).filter(Boolean).slice(offset,offset+limit);
   const out=[],errors=[];for(const symbol of symbols){try{const bars=await getYahoo(symbol);const f=features(bars);if(f)out.push({...f,symbol:yahooSymbol(symbol),provider:'yahoo',sourceQuality:'supplemental-unofficial',state:classify(f)});}catch(e){errors.push({symbol,error:e.message})}await sleep(220)}
   const date=out[0]?.date||new Date().toISOString().slice(0,10),key=`mrl:daily:${date}`;const existing=await redis.get(key);const snap=existing?(typeof existing==='string'?JSON.parse(existing):existing):{date,updatedAt:null,matrix:[]};
   const map=new Map((snap.matrix||[]).map(x=>[x.symbol,x]));out.forEach(x=>map.set(x.symbol,x));const matrix=enrich([...map.values()]);snap.updatedAt=new Date().toISOString();snap.rows=matrix.length;snap.sources=['yahoo'];snap.matrix=matrix.slice(0,10000);
