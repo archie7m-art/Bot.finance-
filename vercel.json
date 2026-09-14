@@ -1,15 +1,1 @@
-{
-  "crons":[
-    {"path":"/api/refresh?limit=200","schedule":"30 15 * * 1-5"},
-    {"path":"/api/refresh?limit=200","schedule":"55 15 * * 1-5"},
-    {"path":"/api/refresh?limit=200","schedule":"20 16 * * 1-5"},
-    {"path":"/api/refresh?limit=200","schedule":"45 16 * * 1-5"},
-    {"path":"/api/refresh?limit=200","schedule":"10 17 * * 1-5"},
-    {"path":"/api/refresh?limit=200","schedule":"35 17 * * 1-5"},
-    {"path":"/api/refresh?limit=200","schedule":"0 18 * * 1-5"},
-    {"path":"/api/refresh?limit=200","schedule":"25 18 * * 1-5"},
-    {"path":"/api/refresh?limit=200","schedule":"50 18 * * 1-5"},
-    {"path":"/api/refresh?limit=200","schedule":"15 19 * * 1-5"},
-    {"path":"/api/weekly","schedule":"30 19 * * 5"}
-  ]
-}
+{"crons":[{"path":"/api/refresh?limit=25&offset=0","schedule":"30 15 * * 1-5"},{"path":"/api/refresh?limit=25&offset=25","schedule":"35 15 * * 1-5"},{"path":"/api/refresh?limit=25&offset=50","schedule":"40 15 * * 1-5"},{"path":"/api/refresh?limit=25&offset=75","schedule":"45 15 * * 1-5"},{"path":"/api/refresh?limit=25&offset=100","schedule":"50 15 * * 1-5"},{"path":"/api/refresh?limit=25&offset=125","schedule":"55 15 * * 1-5"},{"path":"/api/refresh?limit=25&offset=150","schedule":"0 16 * * 1-5"},{"path":"/api/refresh?limit=25&offset=175","schedule":"5 16 * * 1-5"},{"path":"/api/weekly","schedule":"0 16 * * 5"}]}
