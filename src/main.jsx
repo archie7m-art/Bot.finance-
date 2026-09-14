@@ -2,83 +2,31 @@ import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {Activity,BarChart3,Database,FlaskConical,RefreshCw,Search,ShieldCheck,Upload,ChevronRight,Info,Layers3,Network,BrainCircuit,GitBranch,LineChart,SlidersHorizontal} from 'lucide-react';
 import './styles.css';
-import {BUILTIN_UNIVERSE} from './builtinUniverse';
 const demo=[
 {symbol:'RELIANCE.BO',company:'Reliance Industries',close:1420,return1d:1.2,return5d:4.2,return20d:8.4,rvolZ:2.1,buyPressure:2.4,sellPressure:.3,netPressure:2.1,momentumZ:1.8,drawdown:-3.2,volatility:19.4,clv:.74,participation:1.8,pressureTrend:.9,state:'BUILD-UP',confidence:82,quality:.96},
 {symbol:'TCS.BO',company:'Tata Consultancy Services',close:3920,return1d:.2,return5d:1.1,return20d:2.3,rvolZ:.4,buyPressure:.5,sellPressure:.3,netPressure:.2,momentumZ:.6,drawdown:-4.8,volatility:18.2,clv:.15,participation:.3,pressureTrend:.1,state:'BALANCED',confidence:61,quality:.96},
 {symbol:'HDFCBANK.BO',company:'HDFC Bank',close:1680,return1d:-1.1,return5d:-2.2,return20d:-5.8,rvolZ:1.7,buyPressure:.2,sellPressure:1.9,netPressure:-1.7,momentumZ:-1.2,drawdown:-11.1,volatility:28.1,clv:-.71,participation:1.6,pressureTrend:-.8,state:'DISTRIBUTION',confidence:85,quality:.96},
 {symbol:'SBIN.BO',company:'State Bank of India',close:820,return1d:1.4,return5d:3.4,return20d:7.1,rvolZ:2.8,buyPressure:2.8,sellPressure:.4,netPressure:2.4,momentumZ:2.2,drawdown:-5.7,volatility:24.5,clv:.82,participation:2.4,pressureTrend:1.1,state:'BUILD-UP',confidence:89,quality:.96}];
 const n=x=>Number.isFinite(Number(x))?Number(x):0,pct=(x,d=2)=>`${n(x).toFixed(d)}%`,sig=x=>`${n(x).toFixed(2)}σ`;
-function App(){const fileInputRef=useRef(null);const [tab,setTab]=useState('research'),[rows,setRows]=useState(demo),[history,setHistory]=useState([]),[summary,setSummary]=useState(null),[counts,setCounts]=useState({}),[query,setQuery]=useState(''),[message,setMessage]=useState(''),[loading,setLoading]=useState(false),[configured,setConfigured]=useState(false),[selected,setSelected]=useState(null);
- async function load(){setLoading(true);try{const r=await fetch('/api/state');if(!r.ok)throw Error();const j=await r.json();if(j.matrix?.length)setRows(j.matrix);setHistory(j.history||[]);setCounts(j.counts||{});setSummary(j.summary||null);setConfigured(!!j.configured);setMessage(j.matrix?.length?'Live analytical matrix loaded.':'Storage connected; awaiting collector output.')}catch{setMessage('Research preview active. Connect Upstash Redis for live collection.')}finally{setLoading(false)}}
- async function loadValidation(){try{const r=await fetch('/api/validation');if(r.ok)setValidation(await r.json())}catch{}}
- async function refreshMatrix(){
-  if(loading)return;
-  setLoading(true);
-  setMessage('Refreshing live market data → updating matrix…');
-  try{
-    const state=await fetch('/api/state').then(r=>r.ok?r.json():{}).catch(()=>({}));
-    let collector=state.collector;
-    if(typeof collector==='string'){try{collector=JSON.parse(collector)}catch{collector=null}}
-    const total=Number(collector?.total||BUILTIN_UNIVERSE.length||2000);
-    const currentOffset=Number(collector?.offset||0);
-    const offset=currentOffset>=total?0:Math.max(0,currentOffset);
-    const r=await fetch('/api/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({limit:25,offset})});
-    const j=await r.json().catch(()=>({error:'Invalid collector response'}));
-    if(!r.ok)throw Error(j.error||'Live refresh failed');
-    setMessage(`Live refresh complete: ${j.success||0}/${j.processed||0} securities updated. ${j.errors||0} failed.`);
-    await load();
-    await loadValidation();
-  }catch(e){
-    setMessage(`Refresh failed: ${e.message||'Unable to refresh live market data'}`);
-  }finally{setLoading(false)}
- }
- useEffect(()=>{load();loadValidation()},[]);
- async function loadBuiltinUniverse(){
-  setLoading(true);
-  setMessage('Loading built-in 2,000-stock universe…');
-  try{
-    const universe=BUILTIN_UNIVERSE.map(x=>({symbol:String(x.symbol),company:String(x.company)}));
-    const r=await fetch('/api/universe',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-Source-Name':'Built-in BSE universe'},
-      body:JSON.stringify({universe})
-    });
-    const j=await r.json().catch(()=>({error:'Invalid server response'}));
-    if(!r.ok)throw Error(j.error||'Unable to save built-in universe');
-    setRows(universe);
-    setCounts({});
-    setSummary(null);
-    setMessage(`${Number(j.rows||universe.length).toLocaleString()} stocks loaded from the built-in universe.`);
-  }catch(e){
-    setRows(BUILTIN_UNIVERSE);
-    setMessage(`Built-in universe loaded locally (${BUILTIN_UNIVERSE.length.toLocaleString()} stocks). Server save failed: ${e.message||'unknown error'}`);
-  }finally{setLoading(false)}
- }
- async function importCsv(file){
+function App(){const fileInputRef=useRef(null);const [tab,setTab]=useState('research'),[rows,setRows]=useState(demo),[history,setHistory]=useState([]),[summary,setSummary]=useState(null),[counts,setCounts]=useState({}),[query,setQuery]=useState(''),[message,setMessage]=useState(''),[loading,setLoading]=useState(false),[configured,setConfigured]=useState(false),[selected,setSelected]=useState(null),[validation,setValidation]=useState(null);
+ async function load(){setLoading(true);try{const r=await fetch('/api/state');if(!r.ok)throw Error();const j=await r.json();if(j.matrix?.length)setRows(j.matrix);setHistory(j.history||[]);setCounts(j.counts||{});setSummary(j.summary||null);setConfigured(!!j.configured);setMessage(j.matrix?.length?'Live analytical matrix loaded.':'Storage connected; awaiting collector output.')}catch{setMessage('Research preview active. Connect Upstash Redis for live collection.')}finally{setLoading(false)}}async function loadValidation(){try{const r=await fetch('/api/validation');if(r.ok)setValidation(await r.json())}catch{}} useEffect(()=>{load();loadValidation()},[]);
+ async function pushUniverseCsv(text,sourceName){
+  if(!text||!text.trim())throw Error('CSV is empty');
+  const r=await fetch('/api/universe',{
+    method:'POST',
+    headers:{'Content-Type':'text/csv','X-Source-Name':sourceName},
+    body:text
+  });
+  const j=await r.json().catch(()=>({error:'Invalid server response'}));
+  if(!r.ok)throw Error(j.error||'Import request failed');
+  return j;
+}
+async function importCsv(file){
   if(!file)return;
-  setMessage('Reading file → normalizing → importing…');
+  setMessage('Reading CSV → normalizing → discarding raw file…');
   try{
-    const name=(file.name||'').toLowerCase();
-    const isExcel=name.endsWith('.xlsx')||name.endsWith('.xls');
-    let text;
-    if(isExcel){
-      setMessage('Reading Excel workbook → converting first sheet to CSV…');
-      const buffer=await file.arrayBuffer();
-      const XLSX=await import('xlsx');
-      const workbook=XLSX.read(buffer,{type:'array'});
-      const firstSheet=workbook.Sheets[workbook.SheetNames[0]];
-      if(!firstSheet)throw Error('The Excel workbook has no readable sheets');
-      text=XLSX.utils.sheet_to_csv(firstSheet);
-    }else text=await file.text();
-    if(!text.trim())throw Error('Selected file is empty');
-    const r=await fetch('/api/universe',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-Source-Name':file.name||'import.csv'},
-      body:JSON.stringify({csv:text})
-    });
-    const j=await r.json().catch(()=>({error:'Invalid server response'}));
-    if(!r.ok)throw Error(j.error||'Import request failed');
+    const text=await file.text();
+    const j=await pushUniverseCsv(text,file.name||'import.csv');
     setMessage(`${Number(j.rows||0).toLocaleString()} securities added to collector universe.`);
     if(fileInputRef.current)fileInputRef.current.value='';
     await load();
@@ -86,7 +34,23 @@ function App(){const fileInputRef=useRef(null);const [tab,setTab]=useState('rese
     setMessage(`Import failed: ${e.message||'Unable to read the selected file'}`);
     if(fileInputRef.current)fileInputRef.current.value='';
   }
- }
+}
+async function seedBseUniverse(){
+  setLoading(true);
+  setMessage('Loading bundled 2,000-company BSE universe…');
+  try{
+    const r=await fetch('/bse-universe.csv');
+    if(!r.ok)throw Error('Bundled BSE universe file not found');
+    const text=await r.text();
+    const j=await pushUniverseCsv(text,'bse-universe.csv (bundled seed)');
+    setMessage(`Seeded collector universe with ${Number(j.rows||0).toLocaleString()} BSE securities.`);
+    await load();
+  }catch(e){
+    setMessage(`Seed failed: ${e.message||'Unable to load bundled universe'}`);
+  }finally{
+    setLoading(false);
+  }
+}
 function openFilePicker(){fileInputRef.current?.click()}
  const filtered=useMemo(()=>rows.filter(x=>(`${x.symbol} ${x.company}`).toLowerCase().includes(query.toLowerCase())),[rows,query]);
  const s=summary||{breadth:rows.length?rows.filter(x=>n(x.return1d)>0).length/rows.length*100:0,pressureBreadth:rows.length?rows.filter(x=>n(x.netPressure)>0).length/rows.length*100,regime:'MIXED',avgPressure:rows.reduce((a,x)=>a+n(x.netPressure),0)/(rows.length||1),avgVolatility:rows.reduce((a,x)=>a+n(x.volatility),0)/(rows.length||1)};
@@ -94,18 +58,20 @@ function openFilePicker(){fileInputRef.current?.click()}
  return <div className="app"><header><div className="brand"><div className="mark">MR</div><div><h1>Market Research Lab <em>FINAL</em></h1><span>Quantitative reverse-engineering workstation</span></div></div><div className="status"><i/> {configured?'LIVE MATRIX':'RESEARCH MODE'} <span>•</span> DAILY</div></header>
  <nav>{[['research','Research',FlaskConical],['matrix','Matrix',Database],['patterns','Patterns',BarChart3],['risk','Risk',ShieldCheck]].map(([id,label,I])=><button className={tab===id?'active':''} onClick={()=>setTab(id)} key={id}><I size={15}/>{label}</button>)}</nav>
  <main><section className="hero"><div><p className="eyebrow">OBSERVE → NORMALIZE → MODEL → VALIDATE</p><h2>Market behavior,<br/><b>reconstructed from matrices.</b></h2><p className="sub">An evidence-first quantitative engine that converts observable market data into pressure, participation, momentum, risk and latent-state matrices—then tests recurring configurations.</p></div><div className="heroTools">
-  <button type="button" className="featureBtn" onClick={loadBuiltinUniverse} disabled={loading}>
-    <Upload size={14}/> Load 2,000 Stocks
+  <button type="button" className="featureBtn" onClick={openFilePicker}>
+    <Upload size={14}/> Import Universe
   </button>
-  <button type="button" className="refresh" onClick={openFilePicker}>Import Excel/CSV</button>
+  <button type="button" className="featureBtn" onClick={seedBseUniverse}>
+    <Database size={14}/> Seed 2,000 BSE Universe
+  </button>
   <input
     ref={fileInputRef}
     className="filePicker"
     type="file"
-    accept="*/*"
+    accept=".csv,text/csv"
     onChange={e=>importCsv(e.target.files?.[0])}
   />
-  <button type="button" className="refresh" onClick={refreshMatrix} disabled={loading}>
+  <button className="refresh" onClick={()=>{load();loadValidation()}}>
     <RefreshCw size={14}/>{loading?'Updating…':'Refresh matrix'}
   </button>
 </div></section>
