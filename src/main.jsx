@@ -10,7 +10,30 @@ const demo=[
 {symbol:'SBIN.BO',company:'State Bank of India',close:820,return1d:1.4,return5d:3.4,return20d:7.1,rvolZ:2.8,buyPressure:2.8,sellPressure:.4,netPressure:2.4,momentumZ:2.2,drawdown:-5.7,volatility:24.5,clv:.82,participation:2.4,pressureTrend:1.1,state:'BUILD-UP',confidence:89,quality:.96}];
 const n=x=>Number.isFinite(Number(x))?Number(x):0,pct=(x,d=2)=>`${n(x).toFixed(d)}%`,sig=x=>`${n(x).toFixed(2)}σ`;
 function App(){const fileInputRef=useRef(null);const [tab,setTab]=useState('research'),[rows,setRows]=useState(demo),[history,setHistory]=useState([]),[summary,setSummary]=useState(null),[counts,setCounts]=useState({}),[query,setQuery]=useState(''),[message,setMessage]=useState(''),[loading,setLoading]=useState(false),[configured,setConfigured]=useState(false),[selected,setSelected]=useState(null);
- async function load(){setLoading(true);try{const r=await fetch('/api/state');if(!r.ok)throw Error();const j=await r.json();if(j.matrix?.length)setRows(j.matrix);setHistory(j.history||[]);setCounts(j.counts||{});setSummary(j.summary||null);setConfigured(!!j.configured);setMessage(j.matrix?.length?'Live analytical matrix loaded.':'Storage connected; awaiting collector output.')}catch{setMessage('Research preview active. Connect Upstash Redis for live collection.')}finally{setLoading(false)}}async function loadValidation(){try{const r=await fetch('/api/validation');if(r.ok)setValidation(await r.json())}catch{}} useEffect(()=>{load();loadValidation()},[]);
+ async function load(){setLoading(true);try{const r=await fetch('/api/state');if(!r.ok)throw Error();const j=await r.json();if(j.matrix?.length)setRows(j.matrix);setHistory(j.history||[]);setCounts(j.counts||{});setSummary(j.summary||null);setConfigured(!!j.configured);setMessage(j.matrix?.length?'Live analytical matrix loaded.':'Storage connected; awaiting collector output.')}catch{setMessage('Research preview active. Connect Upstash Redis for live collection.')}finally{setLoading(false)}}
+ async function loadValidation(){try{const r=await fetch('/api/validation');if(r.ok)setValidation(await r.json())}catch{}}
+ async function refreshMatrix(){
+  if(loading)return;
+  setLoading(true);
+  setMessage('Refreshing live market data → updating matrix…');
+  try{
+    const state=await fetch('/api/state').then(r=>r.ok?r.json():{}).catch(()=>({}));
+    let collector=state.collector;
+    if(typeof collector==='string'){try{collector=JSON.parse(collector)}catch{collector=null}}
+    const total=Number(collector?.total||BUILTIN_UNIVERSE.length||2000);
+    const currentOffset=Number(collector?.offset||0);
+    const offset=currentOffset>=total?0:Math.max(0,currentOffset);
+    const r=await fetch('/api/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({limit:25,offset})});
+    const j=await r.json().catch(()=>({error:'Invalid collector response'}));
+    if(!r.ok)throw Error(j.error||'Live refresh failed');
+    setMessage(`Live refresh complete: ${j.success||0}/${j.processed||0} securities updated. ${j.errors||0} failed.`);
+    await load();
+    await loadValidation();
+  }catch(e){
+    setMessage(`Refresh failed: ${e.message||'Unable to refresh live market data'}`);
+  }finally{setLoading(false)}
+ }
+ useEffect(()=>{load();loadValidation()},[]);
  async function loadBuiltinUniverse(){
   setLoading(true);
   setMessage('Loading built-in 2,000-stock universe…');
@@ -82,7 +105,7 @@ function openFilePicker(){fileInputRef.current?.click()}
     accept="*/*"
     onChange={e=>importCsv(e.target.files?.[0])}
   />
-  <button className="refresh" onClick={()=>{load();loadValidation()}}>
+  <button type="button" className="refresh" onClick={refreshMatrix} disabled={loading}>
     <RefreshCw size={14}/>{loading?'Updating…':'Refresh matrix'}
   </button>
 </div></section>
