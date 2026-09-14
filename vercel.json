@@ -1,0 +1,15 @@
+{
+  "crons":[
+    {"path":"/api/refresh?limit=200","schedule":"30 15 * * 1-5"},
+    {"path":"/api/refresh?limit=200","schedule":"55 15 * * 1-5"},
+    {"path":"/api/refresh?limit=200","schedule":"20 16 * * 1-5"},
+    {"path":"/api/refresh?limit=200","schedule":"45 16 * * 1-5"},
+    {"path":"/api/refresh?limit=200","schedule":"10 17 * * 1-5"},
+    {"path":"/api/refresh?limit=200","schedule":"35 17 * * 1-5"},
+    {"path":"/api/refresh?limit=200","schedule":"0 18 * * 1-5"},
+    {"path":"/api/refresh?limit=200","schedule":"25 18 * * 1-5"},
+    {"path":"/api/refresh?limit=200","schedule":"50 18 * * 1-5"},
+    {"path":"/api/refresh?limit=200","schedule":"15 19 * * 1-5"},
+    {"path":"/api/weekly","schedule":"30 19 * * 5"}
+  ]
+}
