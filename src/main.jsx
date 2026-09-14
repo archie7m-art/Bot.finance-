@@ -2,6 +2,7 @@ import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {Activity,BarChart3,Database,FlaskConical,RefreshCw,Search,ShieldCheck,Upload,ChevronRight,Info,Layers3,Network,BrainCircuit,GitBranch,LineChart,SlidersHorizontal} from 'lucide-react';
 import './styles.css';
+import {BUILTIN_UNIVERSE} from './builtinUniverse';
 const demo=[
 {symbol:'RELIANCE.BO',company:'Reliance Industries',close:1420,return1d:1.2,return5d:4.2,return20d:8.4,rvolZ:2.1,buyPressure:2.4,sellPressure:.3,netPressure:2.1,momentumZ:1.8,drawdown:-3.2,volatility:19.4,clv:.74,participation:1.8,pressureTrend:.9,state:'BUILD-UP',confidence:82,quality:.96},
 {symbol:'TCS.BO',company:'Tata Consultancy Services',close:3920,return1d:.2,return5d:1.1,return20d:2.3,rvolZ:.4,buyPressure:.5,sellPressure:.3,netPressure:.2,momentumZ:.6,drawdown:-4.8,volatility:18.2,clv:.15,participation:.3,pressureTrend:.1,state:'BALANCED',confidence:61,quality:.96},
@@ -10,9 +11,30 @@ const demo=[
 const n=x=>Number.isFinite(Number(x))?Number(x):0,pct=(x,d=2)=>`${n(x).toFixed(d)}%`,sig=x=>`${n(x).toFixed(2)}σ`;
 function App(){const fileInputRef=useRef(null);const [tab,setTab]=useState('research'),[rows,setRows]=useState(demo),[history,setHistory]=useState([]),[summary,setSummary]=useState(null),[counts,setCounts]=useState({}),[query,setQuery]=useState(''),[message,setMessage]=useState(''),[loading,setLoading]=useState(false),[configured,setConfigured]=useState(false),[selected,setSelected]=useState(null);
  async function load(){setLoading(true);try{const r=await fetch('/api/state');if(!r.ok)throw Error();const j=await r.json();if(j.matrix?.length)setRows(j.matrix);setHistory(j.history||[]);setCounts(j.counts||{});setSummary(j.summary||null);setConfigured(!!j.configured);setMessage(j.matrix?.length?'Live analytical matrix loaded.':'Storage connected; awaiting collector output.')}catch{setMessage('Research preview active. Connect Upstash Redis for live collection.')}finally{setLoading(false)}}async function loadValidation(){try{const r=await fetch('/api/validation');if(r.ok)setValidation(await r.json())}catch{}} useEffect(()=>{load();loadValidation()},[]);
+ async function loadBuiltinUniverse(){
+  setLoading(true);
+  setMessage('Loading built-in 2,000-stock universe…');
+  try{
+    const universe=BUILTIN_UNIVERSE.map(x=>({symbol:String(x.symbol),company:String(x.company)}));
+    const r=await fetch('/api/universe',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Source-Name':'Built-in BSE universe'},
+      body:JSON.stringify({universe})
+    });
+    const j=await r.json().catch(()=>({error:'Invalid server response'}));
+    if(!r.ok)throw Error(j.error||'Unable to save built-in universe');
+    setRows(universe);
+    setCounts({});
+    setSummary(null);
+    setMessage(`${Number(j.rows||universe.length).toLocaleString()} stocks loaded from the built-in universe.`);
+  }catch(e){
+    setRows(BUILTIN_UNIVERSE);
+    setMessage(`Built-in universe loaded locally (${BUILTIN_UNIVERSE.length.toLocaleString()} stocks). Server save failed: ${e.message||'unknown error'}`);
+  }finally{setLoading(false)}
+ }
  async function importCsv(file){
   if(!file)return;
-  setMessage('Reading file → normalizing → discarding raw file…');
+  setMessage('Reading file → normalizing → importing…');
   try{
     const name=(file.name||'').toLowerCase();
     const isExcel=name.endsWith('.xlsx')||name.endsWith('.xls');
@@ -25,9 +47,7 @@ function App(){const fileInputRef=useRef(null);const [tab,setTab]=useState('rese
       const firstSheet=workbook.Sheets[workbook.SheetNames[0]];
       if(!firstSheet)throw Error('The Excel workbook has no readable sheets');
       text=XLSX.utils.sheet_to_csv(firstSheet);
-    }else{
-      text=await file.text();
-    }
+    }else text=await file.text();
     if(!text.trim())throw Error('Selected file is empty');
     const r=await fetch('/api/universe',{
       method:'POST',
@@ -43,7 +63,7 @@ function App(){const fileInputRef=useRef(null);const [tab,setTab]=useState('rese
     setMessage(`Import failed: ${e.message||'Unable to read the selected file'}`);
     if(fileInputRef.current)fileInputRef.current.value='';
   }
-}
+ }
 function openFilePicker(){fileInputRef.current?.click()}
  const filtered=useMemo(()=>rows.filter(x=>(`${x.symbol} ${x.company}`).toLowerCase().includes(query.toLowerCase())),[rows,query]);
  const s=summary||{breadth:rows.length?rows.filter(x=>n(x.return1d)>0).length/rows.length*100:0,pressureBreadth:rows.length?rows.filter(x=>n(x.netPressure)>0).length/rows.length*100,regime:'MIXED',avgPressure:rows.reduce((a,x)=>a+n(x.netPressure),0)/(rows.length||1),avgVolatility:rows.reduce((a,x)=>a+n(x.volatility),0)/(rows.length||1)};
@@ -51,9 +71,10 @@ function openFilePicker(){fileInputRef.current?.click()}
  return <div className="app"><header><div className="brand"><div className="mark">MR</div><div><h1>Market Research Lab <em>FINAL</em></h1><span>Quantitative reverse-engineering workstation</span></div></div><div className="status"><i/> {configured?'LIVE MATRIX':'RESEARCH MODE'} <span>•</span> DAILY</div></header>
  <nav>{[['research','Research',FlaskConical],['matrix','Matrix',Database],['patterns','Patterns',BarChart3],['risk','Risk',ShieldCheck]].map(([id,label,I])=><button className={tab===id?'active':''} onClick={()=>setTab(id)} key={id}><I size={15}/>{label}</button>)}</nav>
  <main><section className="hero"><div><p className="eyebrow">OBSERVE → NORMALIZE → MODEL → VALIDATE</p><h2>Market behavior,<br/><b>reconstructed from matrices.</b></h2><p className="sub">An evidence-first quantitative engine that converts observable market data into pressure, participation, momentum, risk and latent-state matrices—then tests recurring configurations.</p></div><div className="heroTools">
-  <button type="button" className="featureBtn" onClick={openFilePicker}>
-    <Upload size={14}/> Import Universe
+  <button type="button" className="featureBtn" onClick={loadBuiltinUniverse} disabled={loading}>
+    <Upload size={14}/> Load 2,000 Stocks
   </button>
+  <button type="button" className="refresh" onClick={openFilePicker}>Import Excel/CSV</button>
   <input
     ref={fileInputRef}
     className="filePicker"
