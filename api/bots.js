@@ -14,21 +14,30 @@ export default async function handler(req, res) {
   try {
     const redis = Redis.fromEnv();
     const symbol = String(req.query?.symbol || '');
+    const botId = String(req.query?.bot || '');
     let date = String(req.query?.date || '');
     if (!date) {
       const dates = await redis.lrange('mrl:daily:index', 0, 0);
       date = dates?.[0] || '';
     }
-    if (!date) return res.status(200).json({ configured: true, registry: BOT_REGISTRY, date: null, job: null, symbol, audit: [] });
+    if (!date) return res.status(200).json({ configured: true, registry: BOT_REGISTRY, date: null, job: null, symbol, audit: [], feed: [] });
 
     const job = await getJSON(redis, `mrl:job:${date}`, null);
-    let audit = [];
+    let audit = [], feed = [];
+    const bots = (symbol || botId) ? await getJSON(redis, `mrl:bots:${date}`, {}) : {};
     if (symbol) {
-      const bots = await getJSON(redis, `mrl:bots:${date}`, {});
       const bare = symbol.replace(/\.(NS|BO)$/i, '');
       audit = bots[symbol] || bots[bare] || [];
     }
-    return res.status(200).json({ configured: true, registry: BOT_REGISTRY, date, job, symbol, audit });
+    if (botId) {
+      for (const [sym, entries] of Object.entries(bots)) {
+        const hit = (entries || []).find(e => e.bot === botId);
+        if (hit) feed.push({ symbol: sym, ...hit });
+      }
+      feed.sort((a, b) => (a.status === 'error' || a.status === 'flagged' ? -1 : 1) - (b.status === 'error' || b.status === 'flagged' ? -1 : 1));
+      feed = feed.slice(0, 200);
+    }
+    return res.status(200).json({ configured: true, registry: BOT_REGISTRY, date, job, symbol, audit, bot: botId, feed });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
