@@ -51,7 +51,7 @@ export function enrich(rows){
  const valid=rows.filter(r=>r&&Number.isFinite(r.netPressure));
  const fields=['netPressure','rvolZ','momentumZ','trendAlignment','participation','liquidityStress','return20d'];
  const stats={}; for(const k of fields){const a=valid.map(r=>num(r[k]));stats[k]={mean:mean(a),sd:sd(a)};}
- return rows.map(r=>{if(!r)return r;const ranks={};for(const k of fields)ranks[k]=rank(num(r[k]),valid.map(x=>num(x[k])));const state=classify(r);const conf=confidence(r);return {...r,ranks,state,confidence:conf,patternSignature:[r.netPressure>0?'P+':'P-',r.rvolZ>0?'V+':'V-',r.momentumZ>0?'M+':'M-',r.trendAlignment>0?'T+':'T-',r.liquidityStress>1.5?'R+':'R-'].join('|'),factorScore:clamp((ranks.netPressure-.5)*2*.3+(ranks.momentumZ-.5)*2*.2+(ranks.rvolZ-.5)*2*.15+(ranks.trendAlignment-.5)*2*.2-(ranks.liquidityStress-.5)*2*.15)}});
+ return rows.map(r=>{if(!r)return r;const ranks={};for(const k of fields)ranks[k]=rank(num(r[k]),valid.map(x=>num(x[k])));const state=classify(r);let conf=confidence(r);const riskOverride=!!r.riskFlags?.override;if(riskOverride)conf=Math.min(conf,35);return {...r,ranks,state,confidence:conf,riskOverride,patternSignature:[r.netPressure>0?'P+':'P-',r.rvolZ>0?'V+':'V-',r.momentumZ>0?'M+':'M-',r.trendAlignment>0?'T+':'T-',r.liquidityStress>1.5?'R+':'R-'].join('|'),factorScore:clamp((ranks.netPressure-.5)*2*.3+(ranks.momentumZ-.5)*2*.2+(ranks.rvolZ-.5)*2*.15+(ranks.trendAlignment-.5)*2*.2-(ranks.liquidityStress-.5)*2*.15)}});
 }
 export function marketSummary(rows){
  const valid=rows.filter(Boolean),n=valid.length||1,avg=k=>valid.reduce((s,x)=>s+num(x[k]),0)/n;
